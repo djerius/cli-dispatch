@@ -219,8 +219,14 @@ sub _lookup {
   # probably it's embedded in the caller...
   my $ct = 0;
   my %seen;
+
+  # we're guaranteed to get 'CLI::Dispatch' in this list.
+  my $ignore = join(  '|', $self->dispatch_class,
+                      do { no strict 'refs'; @{ *{"@{[ $self->dispatch_class ]}::ISA"}{ARRAY} } },
+                   );
+
   while (my @caller = caller($ct++)) {
-    next if $caller[0] =~ /^(@{[$self->_dispatch_class]}|CLI::Dispatch)(::.+)?$/;
+    next if $caller[0] =~ /^($ignore)(::.+)?$/;
     next if $seen{$caller[0]}++;
     my $content = path($caller[1])->slurp;
     for my $path ( @paths ) {
