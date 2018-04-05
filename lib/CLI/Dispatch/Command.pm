@@ -2,6 +2,9 @@ package CLI::Dispatch::Command;
 
 use strict;
 use warnings;
+use Module::Runtime qw( use_module );
+
+sub dispatch_class { 'CLI::Dispatch' }
 
 sub new {
   my $class = shift;
@@ -53,8 +56,7 @@ sub run {
 sub run_directly {
   my $self = shift;
   my $class = ref $self || $self;
-  require CLI::Dispatch;
-  CLI::Dispatch->run_directly($class);
+  use_module( $self->dispatch_class )->run_directly( $class );
 }
 
 sub usage {
@@ -67,8 +69,21 @@ sub usage {
   my $file = $INC{$class} || $0 or return;
   my $content = do { local $/; open my $fh, '<', $file; <$fh> };
 
-  require CLI::Dispatch::Help;
-  my $help = CLI::Dispatch::Help->new(%$self);
+
+  # find Help class in our dispatch class' hierarchy or up its
+  # inheritance chain.  we're guaranteed to get
+  # 'CLI::Dispatch' in this list.
+  my @namespaces = ( $self->dispatch_class,
+                     do { no strict 'refs'; @{ *{"@{[ $self->dispatch_class ]}::ISA"}{ARRAY} } },
+                   );
+
+  my $help_class;
+  while ( @namespaces ) {
+      my $test = shift @namespaces;
+      next unless $test->isa( 'CLI::Dispatch' );
+      last if $help_class == use_module( $test . '::Help' );
+  }
+  my $help = $help_class->new(%$self);
 
   my $pod = $help->_parse_pod($content);
   $pod = $help->extract_pod_body($pod);

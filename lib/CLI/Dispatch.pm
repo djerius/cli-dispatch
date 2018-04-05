@@ -5,6 +5,7 @@ use warnings;
 use Carp;
 use Getopt::Long ();
 use String::CamelCase;
+use Module::Runtime qw( use_module );
 use Try::Tiny;
 
 our $VERSION = '0.20';
@@ -92,8 +93,7 @@ sub _load_command {
   }
 
   if ($command eq 'Help') {
-    require CLI::Dispatch::Help;
-    return CLI::Dispatch::Help->new;
+      return $self->_find_help->new;
   }
   return;
 }
@@ -104,6 +104,28 @@ sub _package_file {
   $package =~ s{::}{/}g;
   $package .= '\.(?:pm|pod)';
   $package;
+}
+
+# search the inheritance graph for a ::Help module.  $self may be a
+# Dispatch class based on CLI::Dispatch, so need to check that class
+# hierarchy for a Help module before falling back to
+# CLI::Dispatch::Help
+sub _find_help {
+
+    my $self = shift;
+
+    # we're guaranteed to have CLI::Dispatch in this list.
+    my @namespaces = ( ref $self, do { no strict 'refs'; @{ *{"@{[ ref $self ]}::ISA"}{ARRAY} } } );
+
+    my $class;
+    while ( @namespaces ) {
+        $class = shift @namespaces;
+        next unless $class->isa( 'CLI::Dispatch' );
+        $class .= "::Help";
+        last if use_module( $class );
+    }
+
+    return $class;
 }
 
 sub run {
@@ -153,8 +175,7 @@ sub run_directly {
   my %global  = $self->get_options( $self->options );
   my $command = $package->new;
   if ($global{help}) {
-    require CLI::Dispatch::Help;
-    $command = CLI::Dispatch::Help->new;
+    $command = $self->_find_help->new;
     unshift @ARGV, "+$package";
   }
   my %local   = $self->get_options( $command->options );

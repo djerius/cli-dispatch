@@ -19,6 +19,9 @@ my $term_encoding = eval {
 
 sub options {qw( from|decode=s to|encode=s )}
 
+sub _dispatch_class { 'CLI::Dispatch' }
+
+
 sub extra_namespaces {}
 
 sub run {
@@ -101,7 +104,7 @@ sub list_commands {
         $classes{$class} = 1;
 
         # ignore base class
-        next if $class eq 'CLI::Dispatch::Command';
+        next if $class eq join( '::', $self->_dispatch_class, 'Command' );
 
         my $podfile = $file->parent->child($basename . '.pod');
         my $pmfile  = $file->parent->child($basename . '.pm');
@@ -186,7 +189,9 @@ sub _namespaces {
   return grep { !$seen{$_}++ } (
     $self->extra_namespaces,
     @{ $self->option('_namespaces') || [] },
-    'CLI::Dispatch'
+    $self->_dispatch_class,
+    'CLI::Dispatch',  # ordinarily, _dispatch_class is
+                      # 'CLI::Dispatch', but need fallback if not
   );
 }
 
@@ -215,7 +220,7 @@ sub _lookup {
   my $ct = 0;
   my %seen;
   while (my @caller = caller($ct++)) {
-    next if $caller[0] =~ /^CLI::Dispatch(::.+)?$/;
+    next if $caller[0] =~ /^(@{[$self->_dispatch_class]}|CLI::Dispatch)(::.+)?$/;
     next if $seen{$caller[0]}++;
     my $content = path($caller[1])->slurp;
     for my $path ( @paths ) {
