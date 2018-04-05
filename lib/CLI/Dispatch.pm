@@ -122,7 +122,7 @@ sub _find_help {
         $class = shift @namespaces;
         next unless $class->isa( 'CLI::Dispatch' );
         $class .= "::Help";
-        last if use_module( $class );
+        last if $class = eval { use_module( $class ) };
     }
 
     return $class;

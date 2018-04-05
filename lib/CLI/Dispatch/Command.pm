@@ -81,7 +81,7 @@ sub usage {
   while ( @namespaces ) {
       my $test = shift @namespaces;
       next unless $test->isa( 'CLI::Dispatch' );
-      last if $help_class == use_module( $test . '::Help' );
+      last if $help_class = eval { use_module( $test . '::Help' ) };
   }
   my $help = $help_class->new(%$self);
 
